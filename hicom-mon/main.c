@@ -26,12 +26,36 @@
 #include <pthread.h>
 #include <string.h>
 #include "EBCDICConverter.h"
+#include <pcre.h>
 
 
 int sd;
+pcre *re;
 
 void* server(void *args);
 void* session(void* args);
+
+void init_regex()
+{
+	char pattern[] = "N2580";
+	int options = 0;
+	const char* error;
+	int erroffset;
+	re = pcre_compile((char*)pattern, options, &error, &erroffset, NULL);
+	if (!re)
+		perror("Regex compile");
+}
+
+bool check_error(char *str, int len)
+{
+	int count;
+	int covector[10];
+	count = pcre_exec(re, NULL, str, len, 0, 0, covector, 10);
+	if (count)
+		return true;
+	else
+		return false;
+}
 
 void openSocket()
 {
@@ -247,6 +271,7 @@ int	zbx_module_init()
 	/* initialization for dummy.random */
 	srand(time(NULL));
 	openSocket();
+	init_regex();
 	return ZBX_MODULE_OK;
 }
 
@@ -264,5 +289,11 @@ int	zbx_module_init()
 int	zbx_module_uninit()
 {
 	closeSocket();
+	pcre_free(re);
 	return ZBX_MODULE_OK;
+}
+
+int main()
+{
+	return 0;
 }
