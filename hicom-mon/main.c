@@ -26,6 +26,7 @@
 #include <pthread.h>
 #include <string.h>
 #include "EBCDICConverter.h"
+#include <glib.h>
 #include <pcre.h>
 
 
@@ -34,6 +35,16 @@ pcre *re;
 
 void* server(void *args);
 void* session(void* args);
+
+typedef struct clent {
+	unsigned long s_addr;
+	bool status;
+	char *last_err;
+	size_t err_l;
+} client;
+
+GArray *clients;
+size_t clients_l = 0;
 
 void init_regex()
 {
@@ -85,6 +96,7 @@ void* session(void* arg)
 		if (nbytes > 0)
 			send(clientsd, buffer, nbytes, 0);
 	} while (nbytes > 0 && strncmp("bye\r", buffer, 4) != 0);
+	
 	close(clientsd);
 }
 
@@ -99,6 +111,14 @@ void* server(void* args)
 		clientsd = accept(sd, (struct sockaddr*)&addr, &size);
 		if (clientsd > 0)
 		{
+			if (clients == NULL)
+				clients = g_array_new(false, false, sizeof(client*));
+			client *cl = (client*) malloc(sizeof(client));
+			cl->s_addr = addr.sin_addr.s_addr;
+			cl->status = true; 
+			cl->last_err = strdup("");
+			cl->err_l = strlen(cl->last_err);
+			g_array_append_val(clients, cl);
 			pthread_t client_th;
 			pthread_create(&client_th, 0, session, &clientsd);
 		}
@@ -112,22 +132,24 @@ void* server(void* args)
 
 void closeSocket()
 {
+	g_array_free(clients, false);
+	pcre_free(re);
 	close(sd);
 }
 
 /* the variable keeps timeout setting for item processing */
 static int	item_timeout = 0;
 
-int	zbx_module_dummy_ping(AGENT_REQUEST *request, AGENT_RESULT *result);
-int	zbx_module_dummy_echo(AGENT_REQUEST *request, AGENT_RESULT *result);
+int hicom_status(AGENT_REQUEST *request, AGENT_RESULT *result);
+int hicom_last_error(AGENT_REQUEST *request, AGENT_RESULT *result);
 int	zbx_module_dummy_random(AGENT_REQUEST *request, AGENT_RESULT *result);
 
 static ZBX_METRIC keys[] =
 /*      KEY                     FLAG		FUNCTION        	TEST PARAMETERS */
 {
-	{ "dummy.ping",		0,		zbx_module_dummy_ping,	NULL },
-	{ "dummy.echo",		CF_HAVEPARAMS,	zbx_module_dummy_echo, 	"a message" },
 	{ "dummy.random",	CF_HAVEPARAMS,	zbx_module_dummy_random,"1,1000" },
+	{ "hicom.status",	CF_HAVEPARAMS,	hicom_status,"192.168.5.6" },
+	{ "hicom.error",	CF_HAVEPARAMS,	hicom_last_error,"192.168.5.6" },
 	{ NULL }
 };
 
@@ -174,30 +196,6 @@ ZBX_METRIC	*zbx_module_item_list()
 	return keys;
 }
 
-int	zbx_module_dummy_ping(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	SET_UI64_RESULT(result, 1);
-
-	return SYSINFO_RET_OK;
-}
-
-int	zbx_module_dummy_echo(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char	*param;
-
-	if (1 != request->nparam)
-	{
-		/* set optional error message */
-		SET_MSG_RESULT(result, strdup("Invalid number of parameters."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	param = get_rparam(request, 0);
-
-	SET_STR_RESULT(result, strdup(param));
-
-	return SYSINFO_RET_OK;
-}
 
 /******************************************************************************
 *                                                                            *
@@ -268,8 +266,6 @@ int	zbx_module_dummy_random(AGENT_REQUEST *request, AGENT_RESULT *result)
 ******************************************************************************/
 int	zbx_module_init()
 {
-	/* initialization for dummy.random */
-	srand(time(NULL));
 	openSocket();
 	init_regex();
 	return ZBX_MODULE_OK;
@@ -289,7 +285,7 @@ int	zbx_module_init()
 int	zbx_module_uninit()
 {
 	closeSocket();
-	pcre_free(re);
+	
 	return ZBX_MODULE_OK;
 }
 

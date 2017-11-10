@@ -67,9 +67,9 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
-    <RemoteBuildCommandLine>cmake $(RemoteRootDir)/$(ProjectName); make</RemoteBuildCommandLine>
-    <RemoteReBuildCommandLine>cmake $(RemoteRootDir)/$(ProjectName); make</RemoteReBuildCommandLine>
-    <RemoteCleanCommandLine>cmake $(RemoteRootDir)/$(ProjectName); make clean</RemoteCleanCommandLine>
+    <RemoteBuildCommandLine>make</RemoteBuildCommandLine>
+    <RemoteReBuildCommandLine>make</RemoteReBuildCommandLine>
+    <RemoteCleanCommandLine>make clean</RemoteCleanCommandLine>
     <AdditionalSourcesToCopyMapping>$(AdditionalSourcesToCopyMapping)</AdditionalSourcesToCopyMapping>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
@@ -105,7 +105,6 @@
   <ItemGroup>
     <ClCompile Include="EBCDICConverter.c" />
     <ClCompile Include="main.c" />
-    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt" />
